@@ -6,8 +6,10 @@ authors = [
     { name = "devonwarren", email = "devon.warren@gmail.com" }
 ]
 dependencies = [
-    "lightkube>=0.15.2",
     "pydantic>=2.7.0",
+    "icecream>=2.1.3",
+    "kubernetes>=29.0.0",
+    "jsonpointer>=2.4",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
