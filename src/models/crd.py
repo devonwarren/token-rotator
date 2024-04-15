@@ -16,7 +16,7 @@ class CustomResourceDefinitionNames(BaseModel):
 class CustomResourceDefinitionAdditionalPrinterColumn(BaseModel):
     jsonPath: str
     name: str
-    type: Literal["integer", "number", "string", "boolean"]
+    type: Literal["integer", "number", "string", "boolean", "date"]
     description: Optional[str] = ""
     format: Optional[str] = ""
     priority: Optional[int] = 0
@@ -51,27 +51,10 @@ class CustomResource(BaseModel):
         else:
             cls.additionalPrinterColumns = []
 
-    apiVersion: str = Field(
-        ...,
-        description="""APIVersion defines the versioned schema of this representation
-of an object. Servers should convert recognized schemas to the latest
-internal value, and may reject unrecognized values.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-""".replace("\n", " "),
-    )
-    kind: str = Field(
-        ...,
-        description="""Kind is a string value representing the REST resource this
-object represents. Servers may infer this from the endpoint the client
-submits requests to. Cannot be updated. In CamelCase.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-""".replace("\n", " "),
-    )
-
     @classmethod
     def definition(cls) -> dict:
         "return the entire CRD definiton as a dict"
-        schema = _resolve_refs(cls.model_json_schema())
+        schema = _resolve_refs(cls.model_json_schema(by_alias=True))
         return {
             "apiVersion": "apiextensions.k8s.io/v1",
             "kind": "CustomResourceDefinition",
@@ -90,6 +73,9 @@ More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-
                             col.model_dump()
                             for col in cls.additionalPrinterColumns or []
                         ],
+                        "subresources": {
+                            "status": {}
+                        }
                     }
                 ],
             },

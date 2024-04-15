@@ -16,53 +16,59 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: The cron spec defining the interval a CronJob is run
+    - description: If the token is currently valid without any issues
       format: ''
-      jsonPath: .spec.cronSpec
-      name: Spec
+      jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Status
       priority: 0
       type: string
+    - description: A timestamp of when this token is set to expire
+      format: ''
+      jsonPath: .status.expirationTimestamp
+      name: Expiration
+      priority: 0
+      type: date
+    - description: A timestamp of when this token was last rotated
+      format: ''
+      jsonPath: .status.lastRotated
+      name: Last Rotated
+      priority: 0
+      type: date
     name: v1
     schema:
       openAPIV3Schema:
         properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources '
-            title: Apiversion
-            type: string
-          forceNow:
-            default: false
-            title: Forcenow
-            type: boolean
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds '
-            title: Kind
-            type: string
-          name:
-            title: Name
-            type: string
-          rotationSchedule:
-            title: Rotationschedule
-            type: string
-          type:
-            title: Type
-            type: string
-          value:
-            title: Value
-            type: string
+          spec:
+            properties:
+              forceNow:
+                default: false
+                title: Forcenow
+                type: boolean
+              name:
+                title: Name
+                type: string
+              rotationSchedule:
+                title: Rotationschedule
+                type: string
+              type:
+                title: Type
+                type: string
+              value:
+                title: Value
+                type: string
+            required:
+            - name
+            - value
+            - type
+            - rotationSchedule
+            title: TokenSpec
+            type: object
         required:
-        - apiVersion
-        - kind
-        - name
-        - value
-        - type
-        - rotationSchedule
-        title: Token
+        - spec
+        title: TokenCRD
         type: object
         x-kubernetes-preserve-unknown-fields: true
     served: true
     storage: true
+    subresources:
+      status: {}

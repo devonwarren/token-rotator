@@ -20,9 +20,16 @@ class Export(BaseModel):
     Namespace: str
     Annotations: dict[str, str] = Field(default={})
 
+class TokenSpec(BaseModel):
+    name: str
+    value: str
+    type: str
+    rotation_schedule: str = Field(alias="rotationSchedule")  # Crontab text definition
+    force_now: bool = Field(default=False, alias="forceNow")
+
 
 # the definition of the token to rotate
-class Token(
+class TokenCRD(
     CustomResource,
     scope="Namespaced",
     group="token-rotator.org",
@@ -36,17 +43,25 @@ class Token(
     },
     additionalPrinterColumns=[
         CustomResourceDefinitionAdditionalPrinterColumn(
-            name="Spec",
+            name="Status",
             type="string",
-            description="The cron spec defining the interval a CronJob is run",
-            jsonPath=".spec.cronSpec",
-        )
+            description="If the token is currently valid without any issues",
+            jsonPath='.status.conditions[?(@.type=="Ready")].status',
+        ),
+        CustomResourceDefinitionAdditionalPrinterColumn(
+            name="Expiration",
+            type="date",
+            description="A timestamp of when this token is set to expire",
+            jsonPath=".status.expirationTimestamp",
+        ),
+        CustomResourceDefinitionAdditionalPrinterColumn(
+            name="Last Rotated",
+            type="date",
+            description="A timestamp of when this token was last rotated",
+            jsonPath=".status.lastRotated",
+        ),
     ],
 ):
-    name: str
-    value: str
-    type: str
-    rotation_schedule: str = Field(alias="rotationSchedule")  # Crontab text definition
-    force_now: bool = Field(default=False, alias="forceNow")
+    spec: TokenSpec
     # RotationStrategy: RotationStrategies = Field(default=RotationStrategies.IMMEDIATE)
     # Export: Export
