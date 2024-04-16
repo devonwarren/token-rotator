@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field
 class CRDPrinterColumn(BaseModel):
     "A column to be printed when doing a kubectl get"
 
-    json_path: str = Field(alias="jsonPath")
+    # TODO: better validation strings
+    json_path: str
     name: str
     type: Literal["integer", "number", "string", "boolean", "date"]
     description: Optional[str] = ""

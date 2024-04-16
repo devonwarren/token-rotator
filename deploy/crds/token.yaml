@@ -1,74 +1,37 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    app: token-rotator
+    role: token-resource
   name: tokens.token-rotator.org
 spec:
   group: token-rotator.org
   names:
-    categories:
-    - all
-    - token
     kind: Token
     listKind: TokenList
     plural: tokens
-    shortNames: []
     singular: token
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: If the token is currently valid without any issues
-      format: ''
-      jsonPath: .status.conditions[?(@.type=="Ready")].status
-      name: Status
-      priority: 0
-      type: string
-    - description: A timestamp of when this token is set to expire
-      format: ''
-      jsonPath: .status.expirationTimestamp
-      name: Expiration
-      priority: 0
-      type: date
-    - description: A timestamp of when this token was last rotated
-      format: ''
-      jsonPath: .status.lastRotated
-      name: Last Rotated
-      priority: 0
-      type: date
-    name: v1
+  - name: v1
     schema:
       openAPIV3Schema:
         properties:
-          spec:
-            properties:
-              forceNow:
-                default: false
-                title: Forcenow
-                type: boolean
-              name:
-                title: Name
-                type: string
-              rotationSchedule:
-                title: Rotationschedule
-                type: string
-              type:
-                title: Type
-                type: string
-              value:
-                title: Value
-                type: string
-            required:
-            - name
-            - value
-            - type
-            - rotationSchedule
-            title: TokenSpec
-            type: object
-        required:
-        - spec
-        title: TokenCRD
+          forceNow:
+            default: false
+            description: Set to true to force a token refresh now
+            title: Forcenow
+            type: boolean
+          name:
+            description: The name of the token in k8s
+            title: Name
+            type: string
+          rotationSchedule:
+            default: ''
+            description: A CronTab text representing when to run
+            title: Rotationschedule
+            type: string
         type: object
-        x-kubernetes-preserve-unknown-fields: true
     served: true
     storage: true
-    subresources:
-      status: {}
