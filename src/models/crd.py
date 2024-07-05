@@ -1,124 +1,108 @@
-from typing import ClassVar, Literal, Optional
-
-from jsonpointer import JsonPointer
+from typing import Literal, Optional, ClassVar
 from pydantic import BaseModel, Field
 
 
-class CustomResourceDefinitionNames(BaseModel):
-    kind: str
-    plural: str
-    singular: Optional[str]
-    categories: Optional[list[str]]
-    listKind: Optional[str]
-    shortNames: Optional[list[str]]
+class CRDPrinterColumn(BaseModel):
+    "A column to be printed when doing a kubectl get"
 
-
-class CustomResourceDefinitionAdditionalPrinterColumn(BaseModel):
-    jsonPath: str
+    # TODO: better validation strings
+    json_path: str
     name: str
-    type: Literal["integer", "number", "string", "boolean"]
+    type: Literal["integer", "number", "string", "boolean", "date"]
     description: Optional[str] = ""
     format: Optional[str] = ""
     priority: Optional[int] = 0
 
 
-class CustomResource(BaseModel):
-    scope: ClassVar[str]
-    group: ClassVar[str]
-    names: ClassVar[CustomResourceDefinitionNames]
-    additionalPrinterColumns: ClassVar[
-        Optional[list[CustomResourceDefinitionAdditionalPrinterColumn]]
-    ]
+class CRDModel(BaseModel):
+    "A list of CustomResourceDefinition attributes"
 
-    def __init_subclass__(
-        cls,
-        *,
-        scope: str,
-        group: str,
-        names: CustomResourceDefinitionNames | dict,
-        additionalPrinterColumns: Optional[
-            list[dict | CustomResourceDefinitionAdditionalPrinterColumn]
-        ] = None,
-    ):
-        cls.scope = scope
-        cls.group = group
-        cls.names = CustomResourceDefinitionNames.model_validate(names)
-        if additionalPrinterColumns:
-            cls.additionalPrinterColumns = [
-                CustomResourceDefinitionAdditionalPrinterColumn.model_validate(column)
-                for column in additionalPrinterColumns
-            ]
-        else:
-            cls.additionalPrinterColumns = []
-
-    apiVersion: str = Field(
-        ...,
-        description="""APIVersion defines the versioned schema of this representation
-of an object. Servers should convert recognized schemas to the latest
-internal value, and may reject unrecognized values.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-""".replace("\n", " "),
+    scope: Optional[Literal["Namespaced", "Cluster"]] = Field(
+        default="Namespaced",
+        description="If the CRD is namespace scoped or cluster-wide",
+    )
+    group: Optional[str] = Field(
+        default="token-rotator.org",
+        description="The kubernetes group the resource is a part of",
     )
     kind: str = Field(
-        ...,
-        description="""Kind is a string value representing the REST resource this
-object represents. Servers may infer this from the endpoint the client
-submits requests to. Cannot be updated. In CamelCase.
-More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-""".replace("\n", " "),
+        description="The name of the CRD object", pattern=r"^[A-Za-z\-]*$"
+    )
+    singular: str = Field(description="The singular naming of the object")
+    plural: str = Field(description="The plural naming of the objects")
+    list_kind: str = Field(description="The list naming of the objects")
+    short_names: Optional[list[str]] = Field(
+        default=None, description="A list of short names to use with kubectl"
+    )
+    categories: Optional[list[str]] = Field(
+        default=None, description="Any categories to be included in such as `all`"
+    )
+    printed_columns: Optional[list[CRDPrinterColumn]] = None
+
+
+class CRDMeta(BaseModel):
+    "A common base model for CRDs that adds the ability to export the schema"
+
+    # info for CRD definition when exporting schema
+    crd_meta: ClassVar[CRDModel] = CRDModel(
+        scope="Namespaced",
+        group="token-rotator.org",
+        kind="Token",
+        singular="token",
+        plural="tokens",
+        list_kind="TokenList",
+        printed_columns=[
+            CRDPrinterColumn(
+                json_path=".status.ready",
+                name="Status",
+                type="string",
+                description="If the token is in a ready state",
+            ),
+        ],
     )
 
-    @classmethod
-    def definition(cls) -> dict:
-        "return the entire CRD definiton as a dict"
-        schema = _resolve_refs(cls.model_json_schema())
+    def get_crd_meta():
+        "Returns the CRD meta information"
+        return crd_meta.model_dump()
+    
+    def get_crd_yaml() -> dict:
+        "Returns the CRD YAML Kubernetes manifest"
+        
+        crd = crd_meta
         return {
             "apiVersion": "apiextensions.k8s.io/v1",
             "kind": "CustomResourceDefinition",
-            "metadata": {"name": f"{cls.names.plural}.{cls.group}"},
+            "metadata": {
+                "name": f"{crd.plural.lower()}.{crd.group}",
+                "labels": {
+                    "app": "token-rotator",
+                    "role": "token-resource",
+                },
+            },
             "spec": {
-                "scope": cls.scope,
-                "group": cls.group,
-                "names": cls.names.model_dump(),
+                "group": crd.group,
+                "scope": crd.scope,
+                "names": {
+                    "kind": crd.kind,
+                    "singular": crd.singular,
+                    "plural": crd.plural,
+                    "listKind": crd.list_kind,
+                },
                 "versions": [
                     {
                         "name": "v1",
                         "served": True,
                         "storage": True,
-                        "schema": {"openAPIV3Schema": schema},
-                        "additionalPrinterColumns": [
-                            col.model_dump()
-                            for col in cls.additionalPrinterColumns or []
-                        ],
+                        "schema": {
+                            "openAPIV3Schema": {
+                                "type": "object",
+                                "properties": self.model_json_schema()["properties"],
+                            },
+                        },
                     }
                 ],
             },
         }
-
-    class Config:
-        json_schema_extra = {"x-kubernetes-preserve-unknown-fields": True}
-
-
-_sentinel = object()
-
-
-def _resolve_refs(schema: dict, part=_sentinel):
-    """Resolve references in schema generated by pydantic.
-
-    Does not support remote or cyclical references.
-    """
-    if part is _sentinel:
-        part = schema
-    if not isinstance(part, (dict, list)):
-        return part
-    if isinstance(part, list):
-        return [_resolve_refs(schema, item) for item in part]
-    if "$ref" in part:
-        return _resolve_refs(
-            schema, JsonPointer(part["$ref"].lstrip("#")).resolve(schema)
-        )
-    return {
-        key: _resolve_refs(schema, value)
-        for key, value in part.items()
-        if key != "definitions"
-    }
+    
+    
+    
