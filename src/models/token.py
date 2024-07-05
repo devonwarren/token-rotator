@@ -16,7 +16,7 @@ class TokenStatus(BaseModel):
     expiration: Optional[AwareDatetime] = None
 
 
-class Token(BaseModel):
+class Token(CRDMeta):
     "A generic token type"
 
     name: str = Field(description="The name of the token in k8s")
@@ -40,24 +40,3 @@ class Token(BaseModel):
     # status: Annotated[
     #     Optional[TokenStatus], Field(description="The current status info of the token")
     # ] = None
-
-    # info for CRD definition when exporting schema
-    crd_meta: ClassVar[CRDMeta] = CRDMeta(
-            scope="Namespaced",
-            group="token-rotator.org",
-            kind="Token",
-            singular="token",
-            plural="tokens",
-            list_kind="TokenList",
-            printed_columns=[
-                CRDPrinterColumn(
-                    json_path=".status.ready",
-                    name="Status",
-                    type="string",
-                    description="If the token is in a ready state",
-                ),
-            ],
-        )
-
-    def get_crd_meta(self):
-        return self._crd_meta.model_dump(exclude=["status"])
