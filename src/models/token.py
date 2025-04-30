@@ -1,52 +1,42 @@
-from pydantic import BaseModel, Field
-from enum import Enum
-from models.crd import CustomResource, CustomResourceDefinitionAdditionalPrinterColumn
+from typing import Annotated, Literal, Optional, ClassVar
+from pydantic import (
+    BaseModel,
+    Field,
+    PastDatetime,
+    AwareDatetime,
+    SecretStr,
+    StrictBool,
+)
+from models.crd import CRDMeta, CRDPrinterColumn
 
 
-# the type of export type to save token into
-class ExportTypes(str, Enum):
-    SECRET = "Secret"
+class TokenStatus(BaseModel):
+    ready: Optional[bool] = None
+    last_rotated: Optional[PastDatetime] = None
+    expiration: Optional[AwareDatetime] = None
 
 
-class RotationStrategies(str, Enum):
-    IMMEDIATE = "Immediate"
-    KEEP_OLD = "KeepOld"
+class Token(CRDMeta):
+    "A generic token type"
 
-
-# the export info for how the token gets saved
-class Export(BaseModel):
-    Type: ExportTypes
-    Name: str
-    Namespace: str
-    Annotations: dict[str, str] = Field(default={})
-
-
-# the definition of the token to rotate
-class Token(
-    CustomResource,
-    scope="Namespaced",
-    group="token-rotator.org",
-    names={
-        "kind": "Token",
-        "plural": "tokens",
-        "singular": "token",
-        "listKind": "TokenList",
-        "shortNames": [],
-        "categories": ["all", "token"],
-    },
-    additionalPrinterColumns=[
-        CustomResourceDefinitionAdditionalPrinterColumn(
-            name="Spec",
-            type="string",
-            description="The cron spec defining the interval a CronJob is run",
-            jsonPath=".spec.cronSpec",
-        )
-    ],
-):
-    name: str
-    value: str
-    type: str
-    rotation_schedule: str = Field(alias="rotationSchedule")  # Crontab text definition
-    force_now: bool = Field(default=False, alias="forceNow")
-    # RotationStrategy: RotationStrategies = Field(default=RotationStrategies.IMMEDIATE)
-    # Export: Export
+    name: str = Field(description="The name of the token in k8s")
+    # value: SecretStr = Field(description="The secret value of the token")
+    # type: Literal['Secret'] = 'Secret'
+    rotation_schedule: Annotated[
+        str,
+        Field(
+            alias="rotationSchedule",
+            description="A CronTab text representing when to run",
+        ),
+    ] = ""
+    force_now: Annotated[
+        bool,
+        Field(
+            default=False,
+            alias="forceNow",
+            description="Set to true to force a token refresh now",
+        ),
+    ] = False
+    # status: Annotated[
+    #     Optional[TokenStatus], Field(description="The current status info of the token")
+    # ] = None

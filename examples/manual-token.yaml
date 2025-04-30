@@ -1,0 +1,10 @@
+apiVersion: token-rotator.org/v1
+kind: Token
+metadata:
+  name: test
+spec:
+  forceNow: false
+  name: sample-token
+  rotationSchedule: ''
+  type: test
+  value: test

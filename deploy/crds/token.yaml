@@ -1,68 +1,97 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    app: token-rotator
+    role: token-resource
   name: tokens.token-rotator.org
 spec:
   group: token-rotator.org
   names:
-    categories:
-    - all
-    - token
     kind: Token
     listKind: TokenList
     plural: tokens
-    shortNames: []
     singular: token
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - description: The cron spec defining the interval a CronJob is run
-      format: ''
-      jsonPath: .spec.cronSpec
-      name: Spec
-      priority: 0
-      type: string
-    name: v1
+  - name: v1
     schema:
       openAPIV3Schema:
         properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources '
-            title: Apiversion
-            type: string
+          categories:
+            anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+            default: null
+            description: Any categories to be included in such as `all`
+            title: Categories
           forceNow:
             default: false
+            description: Set to true to force a token refresh now
             title: Forcenow
             type: boolean
+          group:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: token-rotator.org
+            description: The kubernetes group the resource is a part of
+            title: Group
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds '
+            description: The name of the CRD object
+            pattern: ^[A-Za-z\-]*$
             title: Kind
             type: string
+          list_kind:
+            description: The list naming of the objects
+            title: List Kind
+            type: string
           name:
+            description: The name of the token in k8s
             title: Name
             type: string
+          plural:
+            description: The plural naming of the objects
+            title: Plural
+            type: string
+          printed_columns:
+            anyOf:
+            - items:
+                $ref: '#/$defs/CRDPrinterColumn'
+              type: array
+            - type: 'null'
+            default: null
+            title: Printed Columns
           rotationSchedule:
+            default: ''
+            description: A CronTab text representing when to run
             title: Rotationschedule
             type: string
-          type:
-            title: Type
+          scope:
+            anyOf:
+            - enum:
+              - Namespaced
+              - Cluster
+              type: string
+            - type: 'null'
+            default: Namespaced
+            description: If the CRD is namespace scoped or cluster-wide
+            title: Scope
+          short_names:
+            anyOf:
+            - items:
+                type: string
+              type: array
+            - type: 'null'
+            default: null
+            description: A list of short names to use with kubectl
+            title: Short Names
+          singular:
+            description: The singular naming of the object
+            title: Singular
             type: string
-          value:
-            title: Value
-            type: string
-        required:
-        - apiVersion
-        - kind
-        - name
-        - value
-        - type
-        - rotationSchedule
-        title: Token
         type: object
-        x-kubernetes-preserve-unknown-fields: true
     served: true
     storage: true

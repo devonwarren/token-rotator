@@ -1,0 +1,5 @@
+force_now: false
+name: sample-token
+rotation_schedule: ''
+type: test
+value: test
