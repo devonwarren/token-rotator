@@ -106,7 +106,7 @@ func (r *GitLabProjectAccessTokenReconciler) Reconcile(
 		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
-	rotationInterval := decision.NextRun.Sub(time.Now())
+	rotationInterval := time.Until(decision.NextRun)
 	if rotationInterval <= 0 {
 		rotationInterval = time.Hour
 	}

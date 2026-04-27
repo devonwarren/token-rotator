@@ -19,6 +19,7 @@ package rotation
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,9 +59,7 @@ func ExportToSecret(
 		if secret.Annotations == nil && len(export.Annotations) > 0 {
 			secret.Annotations = map[string]string{}
 		}
-		for k, v := range export.Annotations {
-			secret.Annotations[k] = v
-		}
+		maps.Copy(secret.Annotations, export.Annotations)
 		if secret.StringData == nil {
 			secret.StringData = map[string]string{}
 		}

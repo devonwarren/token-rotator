@@ -17,20 +17,20 @@ limitations under the License.
 package rotation
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Shared condition types and reasons used across per-source token CRDs.
 const (
 	ConditionReady = "Ready"
 
-	ReasonRotated          = "Rotated"
-	ReasonMintFailed       = "MintFailed"
-	ReasonExportFailed     = "ExportFailed"
-	ReasonScheduleInvalid  = "ScheduleInvalid"
-	ReasonNotYetRotated    = "NotYetRotated"
-	ReasonWaitingForNext   = "WaitingForNextRotation"
+	ReasonRotated         = "Rotated"
+	ReasonMintFailed      = "MintFailed"
+	ReasonExportFailed    = "ExportFailed"
+	ReasonScheduleInvalid = "ScheduleInvalid"
+	ReasonNotYetRotated   = "NotYetRotated"
+	ReasonWaitingForNext  = "WaitingForNextRotation"
 )
 
 // SetReady marks the Ready condition to True on the given conditions slice.
