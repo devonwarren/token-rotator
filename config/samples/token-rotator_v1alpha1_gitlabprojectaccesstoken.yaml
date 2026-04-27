@@ -1,0 +1,9 @@
+apiVersion: token-rotator.org/v1alpha1
+kind: GitLabProjectAccessToken
+metadata:
+  labels:
+    app.kubernetes.io/name: token-rotator
+    app.kubernetes.io/managed-by: kustomize
+  name: gitlabprojectaccesstoken-sample
+spec:
+  # TODO(user): Add fields here
