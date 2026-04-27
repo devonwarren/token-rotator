@@ -51,6 +51,18 @@ type ExportSpec struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
+// SecretKeyRef points at a key within a Kubernetes Secret. Used by per-source
+// specs to reference an API credential the controller uses to mint tokens.
+type SecretKeyRef struct {
+	// +required
+	Name string `json:"name"`
+	// Namespace defaults to the token CR's namespace when empty.
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
+	// +required
+	Key string `json:"key"`
+}
+
 // TokenSpecBase is embedded in every per-source token CRD.
 type TokenSpecBase struct {
 	// RotationSchedule is a cron expression controlling when rotations run.
@@ -93,4 +105,11 @@ type TokenStatus struct {
 	// references the Secret holding the prior token during the grace period.
 	// +optional
 	PreviousTokenRef *corev1.SecretReference `json:"previousTokenRef,omitempty"`
+
+	// LastForceRotationGeneration records the metadata.generation at which
+	// the controller last honored spec.forceNow. It prevents forceNow=true
+	// from causing a rotation on every reconcile: the controller only acts
+	// when generation advances past this value.
+	// +optional
+	LastForceRotationGeneration int64 `json:"lastForceRotationGeneration,omitempty"`
 }

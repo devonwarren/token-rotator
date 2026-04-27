@@ -78,6 +78,24 @@ spec:
                 - Maintainer
                 - Owner
                 type: string
+              apiTokenSecretRef:
+                description: |-
+                  APITokenSecretRef references a Secret containing the GitLab API token
+                  the controller uses to mint project access tokens. The token needs at
+                  least `api` scope and Maintainer access on the target project.
+                properties:
+                  key:
+                    type: string
+                  name:
+                    type: string
+                  namespace:
+                    description: Namespace defaults to the token CR's namespace when
+                      empty.
+                    type: string
+                required:
+                - key
+                - name
+                type: object
               baseURL:
                 description: |-
                   BaseURL overrides the GitLab API endpoint for self-hosted instances.
@@ -138,6 +156,7 @@ spec:
                 type: array
             required:
             - accessLevel
+            - apiTokenSecretRef
             - export
             - project
             - rotationSchedule
@@ -220,6 +239,14 @@ spec:
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
+              lastForceRotationGeneration:
+                description: |-
+                  LastForceRotationGeneration records the metadata.generation at which
+                  the controller last honored spec.forceNow. It prevents forceNow=true
+                  from causing a rotation on every reconcile: the controller only acts
+                  when generation advances past this value.
+                format: int64
+                type: integer
               lastRotationTime:
                 format: date-time
                 type: string

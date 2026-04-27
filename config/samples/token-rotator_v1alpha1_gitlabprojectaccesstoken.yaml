@@ -13,6 +13,9 @@ spec:
     - read_registry
   rotationSchedule: "0 0 1 * *"
   rotationStrategy: Immediate
+  apiTokenSecretRef:
+    name: gitlab-api-credentials
+    key: token
   export:
     type: Secret
     name: gitlab-ci-token

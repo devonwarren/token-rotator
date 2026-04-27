@@ -55,6 +55,12 @@ type GitLabProjectAccessTokenSpec struct {
 	// Defaults to https://gitlab.com when unset.
 	// +optional
 	BaseURL string `json:"baseURL,omitempty"`
+
+	// APITokenSecretRef references a Secret containing the GitLab API token
+	// the controller uses to mint project access tokens. The token needs at
+	// least `api` scope and Maintainer access on the target project.
+	// +required
+	APITokenSecretRef SecretKeyRef `json:"apiTokenSecretRef"`
 }
 
 // +kubebuilder:object:root=true
