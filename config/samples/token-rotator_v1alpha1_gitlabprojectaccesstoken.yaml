@@ -4,6 +4,16 @@ metadata:
   labels:
     app.kubernetes.io/name: token-rotator
     app.kubernetes.io/managed-by: kustomize
-  name: gitlabprojectaccesstoken-sample
+  name: ci-bot
 spec:
-  # TODO(user): Add fields here
+  project: mygroup/myproject
+  accessLevel: Maintainer
+  scopes:
+    - api
+    - read_registry
+  rotationSchedule: "0 0 1 * *"
+  rotationStrategy: Immediate
+  export:
+    type: Secret
+    name: gitlab-ci-token
+    namespace: default

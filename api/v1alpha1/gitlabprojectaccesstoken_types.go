@@ -20,46 +20,53 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+// GitLabAccessLevel maps to GitLab's numeric access_level values used when
+// minting project access tokens.
+// +kubebuilder:validation:Enum=Guest;Reporter;Developer;Maintainer;Owner
+type GitLabAccessLevel string
 
-// GitLabProjectAccessTokenSpec defines the desired state of GitLabProjectAccessToken
+const (
+	GitLabAccessLevelGuest      GitLabAccessLevel = "Guest"
+	GitLabAccessLevelReporter   GitLabAccessLevel = "Reporter"
+	GitLabAccessLevelDeveloper  GitLabAccessLevel = "Developer"
+	GitLabAccessLevelMaintainer GitLabAccessLevel = "Maintainer"
+	GitLabAccessLevelOwner      GitLabAccessLevel = "Owner"
+)
+
+// GitLabProjectAccessTokenSpec defines the desired state of a GitLab
+// project-scoped access token.
 type GitLabProjectAccessTokenSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	// The following markers will use OpenAPI v3 schema to validate the value
-	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
+	TokenSpecBase `json:",inline"`
 
-	// foo is an example field of GitLabProjectAccessToken. Edit gitlabprojectaccesstoken_types.go to remove/update
+	// Project is the full path (e.g. "mygroup/myproject") or numeric ID of
+	// the GitLab project the token is scoped to.
+	// +required
+	Project string `json:"project"`
+
+	// +required
+	AccessLevel GitLabAccessLevel `json:"accessLevel"`
+
+	// Scopes are GitLab PAT scopes like "api", "read_repository", etc.
+	// +required
+	// +kubebuilder:validation:MinItems=1
+	Scopes []string `json:"scopes"`
+
+	// BaseURL overrides the GitLab API endpoint for self-hosted instances.
+	// Defaults to https://gitlab.com when unset.
 	// +optional
-	Foo *string `json:"foo,omitempty"`
-}
-
-// GitLabProjectAccessTokenStatus defines the observed state of GitLabProjectAccessToken.
-type GitLabProjectAccessTokenStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// For Kubernetes API conventions, see:
-	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
-
-	// conditions represent the current state of the GitLabProjectAccessToken resource.
-	// Each condition has a unique type and reflects the status of a specific aspect of the resource.
-	//
-	// Standard condition types include:
-	// - "Available": the resource is fully functional
-	// - "Progressing": the resource is being created or updated
-	// - "Degraded": the resource failed to reach or maintain its desired state
-	//
-	// The status of each condition is one of True, False, or Unknown.
-	// +listType=map
-	// +listMapKey=type
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	BaseURL string `json:"baseURL,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:categories={tokens,gitlab}
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Last Rotated",type=date,JSONPath=`.status.lastRotationTime`
+// +kubebuilder:printcolumn:name="Next Rotation",type=date,JSONPath=`.status.nextRotationTime`
+// +kubebuilder:printcolumn:name="Export",type=string,JSONPath=`.spec.export.name`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:printcolumn:name="Project",type=string,priority=1,JSONPath=`.spec.project`
+// +kubebuilder:printcolumn:name="Access Level",type=string,priority=1,JSONPath=`.spec.accessLevel`
 
 // GitLabProjectAccessToken is the Schema for the gitlabprojectaccesstokens API
 type GitLabProjectAccessToken struct {
@@ -75,7 +82,7 @@ type GitLabProjectAccessToken struct {
 
 	// status defines the observed state of GitLabProjectAccessToken
 	// +optional
-	Status GitLabProjectAccessTokenStatus `json:"status,omitzero"`
+	Status TokenStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
