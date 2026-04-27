@@ -1,25 +1,25 @@
-from typing import ClassVar, Literal, Optional
+from typing import ClassVar, Literal
 
 from jsonpointer import JsonPointer
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CustomResourceDefinitionNames(BaseModel):
     kind: str
     plural: str
-    singular: Optional[str]
-    categories: Optional[list[str]]
-    listKind: Optional[str]
-    shortNames: Optional[list[str]]
+    singular: str | None
+    categories: list[str] | None
+    listKind: str | None
+    shortNames: list[str] | None
 
 
 class CustomResourceDefinitionAdditionalPrinterColumn(BaseModel):
     jsonPath: str
     name: str
     type: Literal["integer", "number", "string", "boolean"]
-    description: Optional[str] = ""
-    format: Optional[str] = ""
-    priority: Optional[int] = 0
+    description: str | None = ""
+    format: str | None = ""
+    priority: int | None = 0
 
 
 class CustomResource(BaseModel):
@@ -27,7 +27,7 @@ class CustomResource(BaseModel):
     group: ClassVar[str]
     names: ClassVar[CustomResourceDefinitionNames]
     additionalPrinterColumns: ClassVar[
-        Optional[list[CustomResourceDefinitionAdditionalPrinterColumn]]
+        list[CustomResourceDefinitionAdditionalPrinterColumn] | None
     ]
 
     def __init_subclass__(
@@ -36,9 +36,7 @@ class CustomResource(BaseModel):
         scope: str,
         group: str,
         names: CustomResourceDefinitionNames | dict,
-        additionalPrinterColumns: Optional[
-            list[dict | CustomResourceDefinitionAdditionalPrinterColumn]
-        ] = None,
+        additionalPrinterColumns: list[dict | CustomResourceDefinitionAdditionalPrinterColumn] | None = None,
     ):
         cls.scope = scope
         cls.group = group
@@ -95,8 +93,7 @@ More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-
             },
         }
 
-    class Config:
-        json_schema_extra = {"x-kubernetes-preserve-unknown-fields": True}
+    model_config = ConfigDict(json_schema_extra={"x-kubernetes-preserve-unknown-fields": True})
 
 
 _sentinel = object()
