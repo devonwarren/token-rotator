@@ -51,14 +51,16 @@ type ExportSpec struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-// SecretKeyRef points at a key within a Kubernetes Secret. Used by per-source
-// specs to reference an API credential the controller uses to mint tokens.
+// SecretKeyRef points at a key within a Kubernetes Secret in the same
+// namespace as the referencing token CR. Used by per-source specs to
+// reference an API credential the controller uses to mint tokens.
+//
+// Cross-namespace references are intentionally not supported: a CR author
+// in one namespace should not be able to read a Secret in another via the
+// controller's cluster-wide Secret permissions.
 type SecretKeyRef struct {
 	// +required
 	Name string `json:"name"`
-	// Namespace defaults to the token CR's namespace when empty.
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
 	// +required
 	Key string `json:"key"`
 }

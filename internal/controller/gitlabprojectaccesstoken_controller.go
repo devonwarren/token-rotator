@@ -75,8 +75,10 @@ func (r *GitLabProjectAccessTokenReconciler) Reconcile(
 		token.Spec.RotationSchedule, forceThisReconcile, lastRotation, time.Now(),
 	)
 	if err != nil {
+		log.Error(err, "invalid rotation schedule", "schedule", token.Spec.RotationSchedule)
 		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonScheduleInvalid, err.Error())
+			rotation.ReasonScheduleInvalid,
+			"rotationSchedule is not a valid cron expression; see controller logs for details")
 		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
@@ -95,14 +97,17 @@ func (r *GitLabProjectAccessTokenReconciler) Reconcile(
 	if err != nil {
 		log.Error(err, "failed to load GitLab API credential")
 		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonMintFailed, err.Error())
+			rotation.ReasonMintFailed,
+			"failed to load API credential; see controller logs for details")
 		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
 	gitlabClient, err := gitlab.NewClient(apiToken, token.Spec.BaseURL)
 	if err != nil {
+		log.Error(err, "failed to construct GitLab client", "baseURL", token.Spec.BaseURL)
 		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonMintFailed, err.Error())
+			rotation.ReasonMintFailed,
+			"failed to construct GitLab client; see controller logs for details")
 		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
@@ -114,9 +119,10 @@ func (r *GitLabProjectAccessTokenReconciler) Reconcile(
 
 	minted, err := gitlabClient.MintProjectAccessToken(ctx, token.Spec, token.Name, expiry)
 	if err != nil {
-		log.Error(err, "failed to mint GitLab token")
+		log.Error(err, "failed to mint GitLab token", "project", token.Spec.Project)
 		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonMintFailed, err.Error())
+			rotation.ReasonMintFailed,
+			"GitLab rejected the token creation request; see controller logs for details")
 		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
@@ -124,9 +130,12 @@ func (r *GitLabProjectAccessTokenReconciler) Reconcile(
 		ctx, r.Client, &token, r.Scheme, token.Spec.Export, minted.Value,
 	)
 	if err != nil {
-		log.Error(err, "failed to export token to Secret")
+		log.Error(err, "failed to export token to Secret",
+			"exportName", token.Spec.Export.Name,
+			"exportNamespace", token.Spec.Export.Namespace)
 		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonExportFailed, err.Error())
+			rotation.ReasonExportFailed,
+			"failed to write rotated token to its export target; see controller logs for details")
 		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
@@ -161,21 +170,18 @@ func (r *GitLabProjectAccessTokenReconciler) loadAPIToken(
 	ctx context.Context, token *tokenrotatorv1alpha1.GitLabProjectAccessToken,
 ) (string, error) {
 	ref := token.Spec.APITokenSecretRef
-	ns := ref.Namespace
-	if ns == "" {
-		ns = token.Namespace
-	}
 
 	var secret corev1.Secret
-	if err := r.Get(ctx, types.NamespacedName{Name: ref.Name, Namespace: ns}, &secret); err != nil {
-		return "", fmt.Errorf("get api token secret %s/%s: %w", ns, ref.Name, err)
+	key := types.NamespacedName{Name: ref.Name, Namespace: token.Namespace}
+	if err := r.Get(ctx, key, &secret); err != nil {
+		return "", fmt.Errorf("get api token secret %s/%s: %w", key.Namespace, key.Name, err)
 	}
 	value, ok := secret.Data[ref.Key]
 	if !ok {
-		return "", fmt.Errorf("secret %s/%s has no key %q", ns, ref.Name, ref.Key)
+		return "", fmt.Errorf("secret %s/%s has no key %q", key.Namespace, key.Name, ref.Key)
 	}
 	if len(value) == 0 {
-		return "", fmt.Errorf("secret %s/%s key %q is empty", ns, ref.Name, ref.Key)
+		return "", fmt.Errorf("secret %s/%s key %q is empty", key.Namespace, key.Name, ref.Key)
 	}
 	return string(value), nil
 }

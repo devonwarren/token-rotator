@@ -88,10 +88,6 @@ spec:
                     type: string
                   name:
                     type: string
-                  namespace:
-                    description: Namespace defaults to the token CR's namespace when
-                      empty.
-                    type: string
                 required:
                 - key
                 - name
