@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -133,9 +134,12 @@ func (r *GitLabProjectAccessTokenReconciler) Reconcile(
 		log.Error(err, "failed to export token to Secret",
 			"exportName", token.Spec.Export.Name,
 			"exportNamespace", token.Spec.Export.Namespace)
+		msg := "failed to write rotated token to its export target; see controller logs for details"
+		if errors.Is(err, rotation.ErrExportTargetConflict) {
+			msg = "export target Secret already exists and is not managed by this resource; choose a different export.name or remove the conflicting Secret"
+		}
 		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonExportFailed,
-			"failed to write rotated token to its export target; see controller logs for details")
+			rotation.ReasonExportFailed, msg)
 		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
