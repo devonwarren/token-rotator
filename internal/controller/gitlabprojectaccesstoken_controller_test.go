@@ -39,7 +39,9 @@ import (
 )
 
 const (
-	fakeGitLabTokenValue = "glpat-fake-rotated-token-xyz"
+	// Intentionally does not match GitLab's glpat- prefix so gitleaks
+	// doesn't flag this test fixture as a real leaked token.
+	fakeGitLabTokenValue = "fixture-rotated-token-xyz"
 	// everyMinuteSchedule fires every minute; a never-rotated CR is always
 	// due under it, so tests can trigger the mint path without waiting.
 	everyMinuteSchedule = "*/1 * * * *"
