@@ -30,11 +30,14 @@ var cronParser = cron.NewParser(
 	cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow,
 )
 
-// Decision describes whether a rotation should happen on this reconcile and
-// when the next one is due.
+// Decision describes whether a rotation should happen on this reconcile,
+// when the next one is due, and the nominal interval between rotations
+// (independent of how long until NextRun). Interval is useful for sizing
+// token lifetimes without being affected by clock skew or schedule slip.
 type Decision struct {
-	Due     bool
-	NextRun time.Time
+	Due      bool
+	NextRun  time.Time
+	Interval time.Duration
 }
 
 // Evaluate decides whether a rotation is due based on the spec's cron
@@ -48,10 +51,17 @@ func Evaluate(
 		return Decision{}, fmt.Errorf("parse rotation schedule %q: %w", schedule, err)
 	}
 
+	next := sched.Next(now)
+	interval := sched.Next(next).Sub(next)
+
 	if forceNow || lastRotation == nil {
-		return Decision{Due: true, NextRun: sched.Next(now)}, nil
+		return Decision{Due: true, NextRun: next, Interval: interval}, nil
 	}
 
-	next := sched.Next(*lastRotation)
-	return Decision{Due: !now.Before(next), NextRun: next}, nil
+	nextFromLast := sched.Next(*lastRotation)
+	return Decision{
+		Due:      !now.Before(nextFromLast),
+		NextRun:  nextFromLast,
+		Interval: interval,
+	}, nil
 }

@@ -18,6 +18,7 @@ package rotation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 
@@ -48,7 +49,7 @@ const ManagedByLabel = "token-rotator.org/managed-by-uid"
 // but was not created by this controller for this owner. The controller
 // translates this into a static ExportFailed condition without leaking the
 // target Secret's contents.
-var ErrExportTargetConflict = fmt.Errorf("export target Secret exists and is not owned by this token")
+var ErrExportTargetConflict = errors.New("export target Secret exists and is not owned by this token")
 
 // ExportToSecret writes (or updates) the target Secret described by the
 // ExportSpec with the given token value. If the Secret lives in the same
@@ -112,10 +113,7 @@ func ExportToSecret(
 		}
 		secret.Labels[ManagedByLabel] = ownerUID
 
-		if secret.Annotations == nil && len(export.Annotations) > 0 {
-			secret.Annotations = map[string]string{}
-		}
-		maps.Copy(secret.Annotations, export.Annotations)
+		secret.Annotations = maps.Clone(export.Annotations)
 
 		secret.Type = corev1.SecretTypeOpaque
 		if secret.StringData == nil {

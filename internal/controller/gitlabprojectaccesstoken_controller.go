@@ -76,11 +76,9 @@ func (r *GitLabProjectAccessTokenReconciler) Reconcile(
 		token.Spec.RotationSchedule, forceThisReconcile, lastRotation, time.Now(),
 	)
 	if err != nil {
-		log.Error(err, "invalid rotation schedule", "schedule", token.Spec.RotationSchedule)
-		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonScheduleInvalid,
+		log.Error(err, "Invalid rotation schedule", "schedule", token.Spec.RotationSchedule)
+		return r.failAndRequeue(ctx, &token, rotation.ReasonScheduleInvalid,
 			"rotationSchedule is not a valid cron expression; see controller logs for details")
-		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
 	if !decision.Due {
@@ -96,51 +94,39 @@ func (r *GitLabProjectAccessTokenReconciler) Reconcile(
 
 	apiToken, err := r.loadAPIToken(ctx, &token)
 	if err != nil {
-		log.Error(err, "failed to load GitLab API credential")
-		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonMintFailed,
+		log.Error(err, "Failed to load GitLab API credential")
+		return r.failAndRequeue(ctx, &token, rotation.ReasonMintFailed,
 			"failed to load API credential; see controller logs for details")
-		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
 	gitlabClient, err := gitlab.NewClient(apiToken, token.Spec.BaseURL)
 	if err != nil {
-		log.Error(err, "failed to construct GitLab client", "baseURL", token.Spec.BaseURL)
-		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonMintFailed,
+		log.Error(err, "Failed to construct GitLab client", "baseURL", token.Spec.BaseURL)
+		return r.failAndRequeue(ctx, &token, rotation.ReasonMintFailed,
 			"failed to construct GitLab client; see controller logs for details")
-		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
-	rotationInterval := time.Until(decision.NextRun)
-	if rotationInterval <= 0 {
-		rotationInterval = time.Hour
-	}
-	expiry := time.Now().Add(rotationInterval * tokenLifetimeMultiplier)
+	expiry := time.Now().Add(decision.Interval * tokenLifetimeMultiplier)
 
 	minted, err := gitlabClient.MintProjectAccessToken(ctx, token.Spec, token.Name, expiry)
 	if err != nil {
-		log.Error(err, "failed to mint GitLab token", "project", token.Spec.Project)
-		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonMintFailed,
+		log.Error(err, "Failed to mint GitLab token", "project", token.Spec.Project)
+		return r.failAndRequeue(ctx, &token, rotation.ReasonMintFailed,
 			"GitLab rejected the token creation request; see controller logs for details")
-		return ctrl.Result{}, r.updateStatus(ctx, &token)
 	}
 
 	secretRef, err := rotation.ExportToSecret(
 		ctx, r.Client, &token, r.Scheme, token.Spec.Export, minted.Value,
 	)
 	if err != nil {
-		log.Error(err, "failed to export token to Secret",
+		log.Error(err, "Failed to export token to Secret",
 			"exportName", token.Spec.Export.Name,
 			"exportNamespace", token.Spec.Export.Namespace)
 		msg := "failed to write rotated token to its export target; see controller logs for details"
 		if errors.Is(err, rotation.ErrExportTargetConflict) {
 			msg = "export target Secret already exists and is not managed by this resource; choose a different export.name or remove the conflicting Secret"
 		}
-		rotation.SetNotReady(&token.Status.Conditions, token.Generation,
-			rotation.ReasonExportFailed, msg)
-		return ctrl.Result{}, r.updateStatus(ctx, &token)
+		return r.failAndRequeue(ctx, &token, rotation.ReasonExportFailed, msg)
 	}
 
 	now := metav1.Now()
@@ -168,6 +154,19 @@ func (r *GitLabProjectAccessTokenReconciler) updateStatus(
 		return err
 	}
 	return nil
+}
+
+// failAndRequeue stamps a NotReady condition with the given reason/message,
+// persists status, and returns an empty result. The underlying error is
+// logged separately by the caller and must not be embedded in msg (it may
+// reference a token value or API credential).
+func (r *GitLabProjectAccessTokenReconciler) failAndRequeue(
+	ctx context.Context,
+	token *tokenrotatorv1alpha1.GitLabProjectAccessToken,
+	reason, msg string,
+) (ctrl.Result, error) {
+	rotation.SetNotReady(&token.Status.Conditions, token.Generation, reason, msg)
+	return ctrl.Result{}, r.updateStatus(ctx, token)
 }
 
 func (r *GitLabProjectAccessTokenReconciler) loadAPIToken(
