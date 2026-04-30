@@ -1,0 +1,8 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore test fixtures that resemble GitLab PATs but are hard-coded constants in controller tests."
+paths = [
+    '''internal/controller/.*_test\.go$''',
+]
