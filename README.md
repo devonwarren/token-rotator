@@ -1,87 +1,78 @@
 # Token Rotator
 
-> This is very much still a work-in-progress but contributions are always welcome!
+> Work in progress. Contributions welcome.
 
-## Summary
+A Kubernetes operator that rotates API tokens for third-party services, modeled
+on cert-manager. Each token source (GitLab, Tailscale, Docker Registry, DataDog,
+ArgoCD, Google Workspace, …) gets its own strongly-typed CRD, and the operator
+mints replacement tokens on a cron schedule or on demand, publishing them to a
+Kubernetes Secret.
 
-The idea behind token rotator is to automatically manage token rotation for various
-products using Kubernetes similar to cert-manager. Sources (ex: GitLab, Tailscale,
-Docker Registry, etc) are plugins that define what permissions they support and how
-to generate new tokens. The rotation app then mints replacement tokens on-demand or
-via cron and exports them using a number of options.
+## Status
 
-## Source Ideas
-
-- GitLab Access Tokens (personal, project, group)
-- Tailscale Auth Keys
-- Docker Registry
-- DataDog
-- ArgoCD
-- Google Group
+| Source | CRD kind | Status |
+|---|---|---|
+| GitLab — project access tokens | `GitLabProjectAccessToken` | Implemented (v1alpha1) |
+| GitLab — group access tokens | `GitLabGroupAccessToken` | Planned |
+| GitLab — personal access tokens | `GitLabPersonalAccessToken` | Planned |
+| Tailscale | `TailscaleAuthKey` | Planned |
+| Docker Hub | `DockerHubAccessToken` | Planned |
+| DataDog | `DatadogApplicationKey` | Planned |
+| ArgoCD | `ArgoCDProjectToken` | Planned |
+| Google Workspace | `GoogleServiceAccountKey` | Planned |
 
 ## Design
 
 ### One CRD per token type
 
-Rather than a single generic `Token` CRD with an opaque `config` field, each token
-source gets its own strongly-typed CRD. The APIs for minting tokens vary too much
-between providers — GitLab takes a flat `scopes[]` + integer `access_level`, Tailscale
-takes a nested `capabilities` object with tags, DataDog API keys have no scopes at all,
-ArgoCD tokens defer permissions to out-of-band RBAC, etc. — for a single schema to be
-useful. Per-source CRDs give us `kubectl apply`-time validation, per-source RBAC, and
-let each source version independently.
-
-A generic `CustomToken` CRD with a webhook export may be added later as an escape hatch
-for sources that don't have first-class support yet.
+Rather than a single generic `Token` CRD with an opaque `config` field, each
+token source gets its own strongly-typed CRD. The APIs for minting tokens vary
+too much between providers — GitLab takes a flat `scopes[]` + integer
+`access_level`, Tailscale takes a nested `capabilities` object with tags,
+DataDog API keys have no scopes at all, ArgoCD tokens defer permissions to
+out-of-band RBAC, etc. — for a single schema to be useful. Per-source CRDs give
+us `kubectl apply`-time validation, per-source RBAC, and let each source
+version independently.
 
 ### Naming
 
-All CRDs live in a single API group: **`token-rotator.org`**. Kinds are prefixed with
-the source name to keep them unambiguous:
-
-| Kind | Plural |
-|------|--------|
-| `GitLabProjectAccessToken` | `gitlabprojectaccesstokens` |
-| `GitLabGroupAccessToken` | `gitlabgroupaccesstokens` |
-| `GitLabPersonalAccessToken` | `gitlabpersonalaccesstokens` |
-| `TailscaleAuthKey` | `tailscaleauthkeys` |
-| `DockerHubAccessToken` | `dockerhubaccesstokens` |
-| `DatadogApplicationKey` | `datadogapplicationkeys` |
-| `ArgoCDProjectToken` | `argocdprojecttokens` |
-| `GoogleServiceAccountKey` | `googleserviceaccountkeys` |
-
-This follows the cert-manager / ESO / ArgoCD convention (one group, several kinds).
-If the project ever grows to Crossplane scale — dozens of kinds per source — we'd
-revisit moving to per-source subgroups (e.g. `gitlab.token-rotator.org`).
+All CRDs live in a single API group: **`token-rotator.org`**. Kinds are
+prefixed with the source name to keep them unambiguous (e.g.
+`GitLabProjectAccessToken`, `TailscaleAuthKey`). This follows the
+cert-manager / external-secrets / ArgoCD convention.
 
 ### Aggregation
 
-Every CRD registers into shared categories so all token types can be listed together:
+Every CRD registers into shared categories so all token types can be listed
+together:
 
 - `kubectl get tokens` — every rotated token in the cluster, across sources
 - `kubectl get gitlab` — every GitLab-sourced token
 
-Every kind also exposes the same baseline printer columns (`READY`, `LAST ROTATED`,
-`NEXT ROTATION`, `EXPORT`, `AGE`) so the aggregated view is usable without `-o wide`.
-Source-specific columns (e.g. GitLab `access_level`, Tailscale `tags`) are registered
-at `priority: 1` so they only appear with `-o wide`.
+All token CRDs expose the same baseline printer columns (`Ready`, `Last
+Rotated`, `Next Rotation`, `Export`, `Age`) so the aggregated view is usable
+without `-o wide`. Source-specific columns (e.g. GitLab `access_level`) are
+registered at `priority: 1` and only appear with `-o wide`.
 
 ### Shared spec and status
 
-All token CRDs share a common base spec and status; subclasses add source-specific
-fields under their own section of `spec`:
+All token CRDs embed a common base spec and status; per-source specs add their
+own fields:
 
 ```yaml
 spec:
-  rotationSchedule: "0 0 1 * *"   # cron
+  rotationSchedule: "0 0 1 * *"    # cron
   forceNow: false
-  rotationStrategy: Immediate      # Immediate | KeepOld
+  rotationStrategy: Immediate       # Immediate | KeepOld
+  apiTokenSecretRef:                # the credential the controller uses to mint
+    name: gitlab-api-credentials
+    key: token
   export:
     type: Secret
     name: gitlab-ci-token
-    namespace: ci
-  # source-specific fields here, e.g. for GitLabProjectAccessToken:
-  project: healthtensor/iac
+    namespace: default
+  # source-specific fields:
+  project: mygroup/myproject
   accessLevel: Maintainer
   scopes: [api, read_registry]
 
@@ -90,21 +81,81 @@ status:
   lastRotationTime: ...
   nextRotationTime: ...
   currentTokenRef: {name: ..., namespace: ...}
-  previousTokenRef: {name: ..., namespace: ...}  # only for KeepOld
 ```
 
-## TBD Design Decisions
+## Getting started
 
-- How to input additional per-source parameters (e.g. self-hosted GitLab URLs)
-- How to handle failures
-  - Rely on metrics export and Prometheus alarms
-  - Implement Argo Notifications
-  - Failure status on token object
-- Rotation strategy implementation — should `KeepOld` archive the previous token,
-  and for how long, before invalidating it?
-- How to export the new token
-  - Kubernetes Secret objects (could use [PushSecret](https://external-secrets.io/latest/api/pushsecret/) to manage afterwards)
-  - A [Fake External Secrets Operator](https://external-secrets.io/latest/provider/fake/)
-  - Custom Webhook (would require the user to do more dev work)
-- Managing the Token Rotator's API access token itself
-  - A separate CRD just for itself? Set it to autorotate — could be good from an RBAC perspective
+### Prerequisites
+
+- Go 1.25+
+- Docker
+- `kubectl` pointed at a Kubernetes cluster
+- [kubebuilder](https://book.kubebuilder.io/) for regenerating scaffolded code
+
+### Build and run locally against a cluster
+
+Install the CRDs into the currently-configured cluster:
+
+```sh
+make install
+```
+
+Run the controller against that cluster from your workstation (outside the
+cluster, using your kubeconfig):
+
+```sh
+make run
+```
+
+### Deploy to the cluster
+
+Build and push the image, then deploy the manager:
+
+```sh
+make docker-build docker-push IMG=ghcr.io/devonwarren/token-rotator:dev
+make deploy IMG=ghcr.io/devonwarren/token-rotator:dev
+```
+
+### Try it
+
+Create a Secret holding the GitLab API token the operator will use to mint
+project access tokens, then apply the sample CR:
+
+```sh
+kubectl create secret generic gitlab-api-credentials --from-literal=token=<your-gitlab-pat>
+kubectl apply -k config/samples/
+kubectl get tokens
+```
+
+### Tear down
+
+```sh
+kubectl delete -k config/samples/
+make undeploy
+make uninstall
+```
+
+## Repo layout
+
+```
+api/v1alpha1/       # CRD types (generated OpenAPI schemas in config/crd/bases/)
+cmd/main.go         # manager entrypoint
+internal/
+  controller/       # per-CRD reconcilers
+  rotation/         # shared helpers: schedule, conditions, export
+  sources/          # per-source API clients (gitlab, …)
+config/             # kustomize manifests (CRDs, RBAC, deployment)
+```
+
+## Open design questions
+
+- How to handle rotation failures — metrics-only, Argo Notifications, or
+  status-only?
+- `KeepOld` rotation strategy — how long to retain the previous token before
+  revoking it?
+- Additional export targets beyond Kubernetes Secret — PushSecret, webhook?
+- Managing the controller's own API credentials — self-referential CRD?
+
+## License
+
+Apache 2.0. See individual source files for copyright.
