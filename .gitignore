@@ -34,3 +34,7 @@ __pycache__/
 *.py[oc]
 *.egg-info/
 .venv/
+
+# MkDocs
+/site/
+.venv-docs/

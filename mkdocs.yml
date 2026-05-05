@@ -1,0 +1,102 @@
+site_name: Token Rotator
+site_description: A Kubernetes operator that rotates API tokens for third-party services.
+site_url: https://devonwarren.github.io/token-rotator/
+repo_url: https://github.com/devonwarren/token-rotator
+repo_name: devonwarren/token-rotator
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - search.highlight
+    - search.suggest
+    - search.share
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - getting-started/index.md
+      - Install: getting-started/install.md
+      - Deploy: getting-started/deploy.md
+      - Try it: getting-started/try-it.md
+      - Tear down: getting-started/tear-down.md
+  - Design:
+      - design/index.md
+      - One CRD per source: design/crd-per-source.md
+      - Naming: design/naming.md
+      - Aggregation: design/aggregation.md
+      - Shared spec and status: design/shared-spec.md
+      - Resolutions to open questions: design/open-questions-resolutions.md
+  - Sources:
+      - sources/index.md
+      - GitLab project access token: sources/gitlab-project-access-token.md
+  - Guides:
+      - guides/index.md
+      - Bootstrap credentials: guides/bootstrap-credentials.md
+      - ArgoCD integration: guides/argocd-integration.md
+      - Pod reload with Reloader: guides/pod-reload-with-reloader.md
+      - ESO PushSecret composition: guides/eso-pushsecret-composition.md
+      - Observability: guides/observability.md
+  - Reference:
+      - reference/index.md
+      - CRD API: reference/crd-api.md
+      - Metrics: reference/metrics.md
+      - Events: reference/events.md
