@@ -171,6 +171,29 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	"$(KUSTOMIZE)" build config/default | "$(KUBECTL)" delete --ignore-not-found=$(ignore-not-found) -f -
 
+##@ Documentation
+
+DOCS_VENV ?= .venv-docs
+DOCS_PY ?= $(DOCS_VENV)/bin/python
+DOCS_PIP ?= $(DOCS_VENV)/bin/pip
+MKDOCS ?= $(DOCS_VENV)/bin/mkdocs
+
+$(DOCS_VENV)/.stamp: requirements-docs.txt
+	python3 -m venv $(DOCS_VENV)
+	$(DOCS_PIP) install -r requirements-docs.txt
+	touch $(DOCS_VENV)/.stamp
+
+.PHONY: docs-venv
+docs-venv: $(DOCS_VENV)/.stamp ## Create .venv-docs and install docs dependencies.
+
+.PHONY: docs-serve
+docs-serve: docs-venv ## Serve docs locally at http://127.0.0.1:8000 with live reload.
+	$(MKDOCS) serve
+
+.PHONY: docs-build
+docs-build: docs-venv ## Build static docs site to ./site/ (strict mode).
+	$(MKDOCS) build --strict
+
 ##@ Dependencies
 
 ## Location to install dependencies to
