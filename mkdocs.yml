@@ -1,6 +1,6 @@
 site_name: Token Rotator
 site_description: A Kubernetes operator that rotates API tokens for third-party services.
-site_url: https://devonwarren.github.io/token-rotator/
+site_url: https://token-rotator.com/
 repo_url: https://github.com/devonwarren/token-rotator
 repo_name: devonwarren/token-rotator
 edit_uri: edit/main/docs/
