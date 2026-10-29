@@ -49,6 +49,9 @@ jobs:
       - name: Build and push
         id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        env:
+          # The job summary is enough; the .dockerbuild record artifact is not used.
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -75,7 +78,8 @@ jobs:
           image: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
           format: spdx-json
           output-file: sbom.spdx.json
-          upload-artifact: true
+          # The SBOM is attached to the image as a cosign attestation below.
+          upload-artifact: false
 
       - name: Attach SBOM attestation
         if: github.event_name != 'pull_request'

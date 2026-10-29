@@ -68,7 +68,8 @@ markdown_extensions:
       custom_checkbox: true
 
 plugins:
-  - search
+  - search:
+      lang: en
 
 nav:
   - Home: index.md
