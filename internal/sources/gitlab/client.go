@@ -70,9 +70,9 @@ func (c *Client) MintProjectAccessToken(
 	}
 	expiry := gl.ISOTime(expiresAt)
 	opts := &gl.CreateProjectAccessTokenOptions{
-		Name:        gl.Ptr(name),
-		Scopes:      gl.Ptr(spec.Scopes),
-		AccessLevel: gl.Ptr(level),
+		Name:        new(name),
+		Scopes:      new(spec.Scopes),
+		AccessLevel: new(level),
 		ExpiresAt:   &expiry,
 	}
 
